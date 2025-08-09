@@ -57,7 +57,7 @@ export default function EditPostDialog({ post }: { post: Post }) {
                             <textarea {...register("body")} className="border rounded p-2 w-full h-32" />
                             {errors.body && <p className="text-red-500 text-sm">{errors.body.message}</p>}
                             <div className="flex gap-2 justify-end pt-2">
-                                <button type="button" className="border rounded px-3 py-2 cursor-pointer" onClick={() => setOpen(false)}>Cancellation</button>
+                                <button type="button" className="border rounded px-3 py-2 cursor-pointer" onClick={() => setOpen(false)}>Cancel</button>
                                 <button type="submit" className="border rounded px-3 py-2 cursor-pointer" disabled={isLoading}>
                                     {isLoading ? "I'm saving it…" : "Save"}
                                 </button>

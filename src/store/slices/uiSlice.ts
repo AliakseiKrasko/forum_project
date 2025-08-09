@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import {Post} from "@/store/services/forumApi";
+import {Address, Company, Post, User} from "@/store/services/forumApi";
 
 interface UiState {
     favorites: number[];
@@ -7,14 +7,28 @@ interface UiState {
     dark: boolean;
     filterUserId?: number;
     createdPosts: Post[];
+    profile: (User & { avatarUrl?: string }) | null;
+    auth: { loggedIn: boolean; userId: number | null };
 
 }
+
+export type ProfilePatch =
+    Partial<Omit<User, "address" | "company">> & {
+    avatarUrl?: string;
+    address?: Partial<Address>;
+    company?: Partial<Company>;
+};
+
 const initialState: UiState = {
     favorites: [],
     reactions: {},
     dark: false,
     createdPosts: [],
+    profile: null,
+    auth: { loggedIn: false, userId: null },
 };
+
+
 
 const uiSlice = createSlice({
     name: "ui",
@@ -56,9 +70,42 @@ const uiSlice = createSlice({
                 p.body = action.payload.body;
             }
         },
+        setProfile(state, action: PayloadAction<User>) {
+            state.profile = action.payload;
+        },
+        patchProfile(state, action: PayloadAction<ProfilePatch>) {
+            const p = action.payload;
+            if (!state.profile) state.profile = {} as User & { avatarUrl?: string };
+
+            Object.assign(state.profile, p);
+            if (p.address) {
+                state.profile.address = {
+                    ...(state.profile.address ?? {}),
+                    ...p.address,
+                } as Address;
+            }
+            if (p.company) {
+                state.profile.company = {
+                    ...(state.profile.company ?? {}),
+                    ...p.company,
+                } as Company;
+            }
+            if ("avatarUrl" in p) {
+                (state.profile as User & { avatarUrl?: string }).avatarUrl = p.avatarUrl;
+            }
+        },
+        setAuth(state, action: PayloadAction<{ loggedIn: boolean; userId: number | null }>) {
+            state.auth = action.payload;
+        },
+        logout(state) {
+            state.auth = { loggedIn: false, userId: null };
+            state.profile = null;
+        },
     }
 });
 
-export const { toggleDark, setFilterUser, toggleFavorite, toggleLike, toggleDislike, addCreatedPost, updateCreatedPostId, removeCreatedPost, editCreatedPost } = uiSlice.actions;
+export const { toggleDark, setFilterUser, toggleFavorite, toggleLike,
+    toggleDislike, addCreatedPost, updateCreatedPostId, removeCreatedPost,
+    editCreatedPost, setProfile, patchProfile, setAuth, logout } = uiSlice.actions;
 export default uiSlice.reducer;
 export type { UiState };

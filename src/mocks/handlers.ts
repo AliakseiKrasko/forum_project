@@ -25,5 +25,6 @@ export const handlers = [
         );
     }),
 
+
     http.delete(`${API}/posts/:id`, () => HttpResponse.json({}, { status: 200 })),
 ];

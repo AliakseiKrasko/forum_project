@@ -12,6 +12,8 @@ export function ensureUiDefaults(ui?: Partial<UiState>): UiState {
         dark: ui?.dark ?? false,
         filterUserId: ui?.filterUserId,
         createdPosts: ui?.createdPosts ?? [],
+        profile: ui?.profile ?? null,
+        auth: ui?.auth ?? { loggedIn: false, userId: null },
     };
 }
 

@@ -1,7 +1,8 @@
 "use client";
-import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import ThemeToggle from "@/features/theme/ui/ThemeToggle";
+import AvatarMenu from "@/features/auth/ui/AvatarMenu";
 
 function Tab({ href, children }: { href: string; children: React.ReactNode }) {
     const pathname = usePathname();
@@ -27,7 +28,12 @@ export default function Header() {
                 <Link href="/" className="mr-2 text-base font-semibold">Forum</Link>
                 <Tab href="/">Post feed</Tab>
                 <Tab href="/favorites">Favorites</Tab>
-                <div className="ml-auto" />
+                <Tab href="/profile">Profile</Tab>
+
+                <div className="ml-auto flex items-center gap-2">
+                    <ThemeToggle />
+                    <AvatarMenu />
+                </div>
             </nav>
         </header>
     );
