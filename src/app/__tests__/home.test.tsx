@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import {screen} from "@testing-library/react";
 import Home from "@/app/page";
+import {renderWithProviders} from "../../../test/utils";
 
 test("renders filter select", () => {
-    render(<Home />);
+    renderWithProviders(<Home />);
     expect(screen.getByText(/Все пользователи/)).toBeInTheDocument();
 });
