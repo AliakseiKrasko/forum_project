@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from "@/store/store";
 import { useGetUsersQuery } from "@/store/services/forumApi";
 import { setFilterUser } from "@/store/slices/uiSlice";
 import { PostList } from "@/widgets/post-list";
+import {CreatePostDialog} from "@/features/create-post";
 
 export default function HomePage() {
     const dispatch = useAppDispatch();
@@ -24,7 +25,7 @@ export default function HomePage() {
                     ))}
                 </select>
             </div>
-
+            <CreatePostDialog />
             <PostList />
         </div>
     );
