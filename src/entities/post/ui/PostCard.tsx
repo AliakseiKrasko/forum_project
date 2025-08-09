@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "@/store/store";
 import { toggleDislike, toggleFavorite, toggleLike } from "@/store/slices/uiSlice";
 import {Post, useDeletePostMutation} from "@/store/services/forumApi";
 import {toast} from "sonner";
+import {EditPostDialog} from "@/features/edit-post";
 
 export default function PostCard({ post }: { post: Post }) {
     const dispatch = useAppDispatch();
@@ -47,26 +48,32 @@ export default function PostCard({ post }: { post: Post }) {
 
             {/* Блок уходит в самый низ */}
             <div className="mt-auto flex justify-between">
+                {/* Open слева */}
                 <Link
                     className="underline inline-block mr-2"
                     href={`/posts/${post.id}`}
                 >
                     Open
                 </Link>
-                <button
-                    className="rounded border px-2 py-1"
-                    onClick={async () => {
-                        try {
-                            await deletePost(post.id).unwrap();
-                            toast.success("Post deleted");
-                        } catch {
-                            toast.error("Unable to delete");
-                        }
-                    }}
-                    disabled={removing}
-                >
-                    Delete
-                </button>
+
+                {/* Edit + Delete справа */}
+                <div className="flex items-center gap-2">
+                    <EditPostDialog post={post} />
+                    <button
+                        className="rounded border px-2 py-1 cursor-pointer"
+                        onClick={async () => {
+                            try {
+                                await deletePost(post.id).unwrap();
+                                toast.success("Post deleted");
+                            } catch {
+                                toast.error("Unable to delete");
+                            }
+                        }}
+                        disabled={removing}
+                    >
+                        Delete
+                    </button>
+                </div>
             </div>
         </li>
     );

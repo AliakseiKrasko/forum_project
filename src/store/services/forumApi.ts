@@ -1,15 +1,37 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import {addCreatedPost, removeCreatedPost, updateCreatedPostId} from "@/store/slices/uiSlice";
+import {
+    addCreatedPost,
+    removeCreatedPost,
+    updateCreatedPostId,
+} from "@/store/slices/uiSlice";
 
-export interface User { id: number; name: string; email: string; username: string }
-export interface Post { id: number; userId: number; title: string; body: string; likes?: number }
-export interface Comment { id: number; postId: number; name: string; email: string; body: string }
+export interface User {
+    id: number;
+    name: string;
+    email: string;
+    username: string;
+}
+export interface Post {
+    id: number;
+    userId: number;
+    title: string;
+    body: string;
+    likes?: number;
+}
+export interface Comment {
+    id: number;
+    postId: number;
+    name: string;
+    email: string;
+    body: string;
+}
 
 export const forumApi = createApi({
     reducerPath: "forumApi",
-    baseQuery: fetchBaseQuery({ baseUrl: "https://jsonplaceholder.typicode.com" }),
+    baseQuery: fetchBaseQuery({
+        baseUrl: "https://jsonplaceholder.typicode.com",
+    }),
     tagTypes: ["Posts", "Users", "Comments"],
-    // отключим лишние авто-рефетчи на фоне
     refetchOnFocus: false,
     refetchOnReconnect: false,
 
@@ -40,23 +62,27 @@ export const forumApi = createApi({
             async onQueryStarted(newPost, { dispatch, queryFulfilled }) {
                 const tempId = -Date.now();
 
-                // оптимистично добавляем в кеш "все посты"
                 const patchAll = dispatch(
                     forumApi.util.updateQueryData("getPosts", undefined, (draft) => {
                         draft.unshift({ id: tempId, ...newPost });
                     })
                 );
-                // и кеш "посты пользователя"
                 const patchUser = dispatch(
-                    forumApi.util.updateQueryData("getPosts", newPost.userId, (draft) => {
-                        draft.unshift({ id: tempId, ...newPost });
-                    })
+                    forumApi.util.updateQueryData(
+                        "getPosts",
+                        newPost.userId,
+                        (draft) => {
+                            draft.unshift({ id: tempId, ...newPost });
+                        }
+                    )
                 );
+
+                // persist локально
                 dispatch(addCreatedPost({ id: tempId, ...newPost }));
 
                 try {
                     const { data } = await queryFulfilled;
-                    // заменяем временный id на реальный
+
                     dispatch(
                         forumApi.util.updateQueryData("getPosts", undefined, (draft) => {
                             const i = draft.findIndex((p) => p.id === tempId);
@@ -64,19 +90,23 @@ export const forumApi = createApi({
                         })
                     );
                     dispatch(
-                        forumApi.util.updateQueryData("getPosts", newPost.userId, (draft) => {
-                            const i = draft.findIndex((p) => p.id === tempId);
-                            if (i >= 0) draft[i].id = data.id;
-                        })
+                        forumApi.util.updateQueryData(
+                            "getPosts",
+                            newPost.userId,
+                            (draft) => {
+                                const i = draft.findIndex((p) => p.id === tempId);
+                                if (i >= 0) draft[i].id = data.id;
+                            }
+                        )
                     );
+
                     dispatch(updateCreatedPostId({ tempId, newId: data.id }));
                 } catch {
                     patchAll.undo();
                     patchUser.undo();
                 }
             },
-            // ВАЖНО: без invalidatesTags -> не будет рефетча, который стирает оптимистичный пост
-            // invalidatesTags: ["Posts"],
+            // без invalidatesTags — не трогаем кэш
         }),
 
         deletePost: build.mutation<{ ok: boolean }, number>({
@@ -95,7 +125,70 @@ export const forumApi = createApi({
                     patchAll.undo();
                 }
             },
-            // invalidatesTags: ["Posts"],
+        }),
+
+        updatePost: build.mutation<Post, Pick<Post, "id" | "title" | "body">>({
+            query: ({ id, ...patch }) => ({
+                url: `/posts/${id}`,
+                method: "PUT", // можно PATCH
+                body: patch,
+            }),
+            async onQueryStarted(
+                { id, title, body },
+                { dispatch, queryFulfilled, getState }
+            ) {
+                // оптимистично правим деталь и списки
+                const patchDetail = dispatch(
+                    forumApi.util.updateQueryData("getPost", id, (draft) => {
+                        draft.title = title;
+                        draft.body = body;
+                    })
+                );
+                const patchAll = dispatch(
+                    forumApi.util.updateQueryData("getPosts", undefined, (draft) => {
+                        const i = draft.findIndex((p) => p.id === id);
+                        if (i >= 0) {
+                            draft[i].title = title;
+                            draft[i].body = body;
+                        }
+                    })
+                );
+
+                // безопасно читаем кэш getPosts(userId)
+                type QueryMeta = { endpointName?: string; originalArgs?: unknown };
+                type RTKQueryState = {
+                    forumApi?: { queries?: Record<string, QueryMeta> };
+                };
+                const state = getState() as RTKQueryState;
+                const cached = state.forumApi?.queries ?? {};
+
+                const userIds = Object.values(cached).flatMap((q) =>
+                    q?.endpointName === "getPosts" &&
+                    typeof q.originalArgs === "number"
+                        ? [q.originalArgs as number]
+                        : []
+                );
+
+                const patchesUser = userIds.map((uid) =>
+                    dispatch(
+                        forumApi.util.updateQueryData("getPosts", uid, (draft) => {
+                            const i = draft.findIndex((p) => p.id === id);
+                            if (i >= 0) {
+                                draft[i].title = title;
+                                draft[i].body = body;
+                            }
+                        })
+                    )
+                );
+
+                try {
+                    await queryFulfilled;
+                } catch {
+                    patchDetail.undo();
+                    patchAll.undo();
+                    patchesUser.forEach((p) => p.undo());
+                }
+            },
         }),
     }),
 });
@@ -107,4 +200,5 @@ export const {
     useGetCommentsQuery,
     useCreatePostMutation,
     useDeletePostMutation,
+    useUpdatePostMutation,
 } = forumApi;

@@ -49,9 +49,16 @@ const uiSlice = createSlice({
         removeCreatedPost(state, action: PayloadAction<number>) {
             state.createdPosts = state.createdPosts.filter(p => p.id !== action.payload);
         },
+        editCreatedPost(state, action: PayloadAction<{ id: number; title: string; body: string }>) {
+            const p = state.createdPosts.find(x => x.id === action.payload.id);
+            if (p) {
+                p.title = action.payload.title;
+                p.body = action.payload.body;
+            }
+        },
     }
 });
 
-export const { toggleDark, setFilterUser, toggleFavorite, toggleLike, toggleDislike, addCreatedPost, updateCreatedPostId, removeCreatedPost } = uiSlice.actions;
+export const { toggleDark, setFilterUser, toggleFavorite, toggleLike, toggleDislike, addCreatedPost, updateCreatedPostId, removeCreatedPost, editCreatedPost } = uiSlice.actions;
 export default uiSlice.reducer;
 export type { UiState };

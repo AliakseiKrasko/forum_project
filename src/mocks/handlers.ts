@@ -10,5 +10,20 @@ export const handlers = [
         return HttpResponse.json(responseBody, { status: 201 });
     }),
 
+    http.put(`${API}/posts/:id`, async ({ request, params }) => {
+        const body = await request.json();
+        return HttpResponse.json(
+            { id: Number(params.id), ...(typeof body === "object" && body ? body : {}) },
+            { status: 200 }
+        );
+    }),
+    http.patch(`${API}/posts/:id`, async ({ request, params }) => {
+        const body = await request.json();
+        return HttpResponse.json(
+            { id: Number(params.id), ...(typeof body === "object" && body ? body : {}) },
+            { status: 200 }
+        );
+    }),
+
     http.delete(`${API}/posts/:id`, () => HttpResponse.json({}, { status: 200 })),
 ];
