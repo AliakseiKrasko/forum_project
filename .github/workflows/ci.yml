@@ -8,17 +8,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Устанавливаем pnpm (глобально для раннера)
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
-
-      # Node + кеш для pnpm (работает после action-setup)
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
