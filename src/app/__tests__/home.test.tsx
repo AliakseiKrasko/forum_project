@@ -5,5 +5,5 @@ import {renderWithProviders} from "../../../test/utils";
 
 test("renders filter select", () => {
     renderWithProviders(<Home />);
-    expect(screen.getByText(/Все пользователи/)).toBeInTheDocument();
+    expect(screen.getByText(/All users/)).toBeInTheDocument();
 });

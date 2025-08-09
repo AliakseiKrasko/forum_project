@@ -14,7 +14,7 @@ export default function AddComment({ onAdd }: { onAdd: (v: AddCommentInput)=>voi
             {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
             <textarea {...register("body")} placeholder="Комментарий" className="border p-2 rounded w-full"/>
             {errors.body && <p className="text-red-500 text-sm">{errors.body.message}</p>}
-            <button className="border px-3 py-2 rounded">Добавить</button>
+            <button className="border px-3 py-2 rounded">Add</button>
         </form>
     );
 }
