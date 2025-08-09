@@ -1,3 +1,4 @@
+import React from "react";
 import {screen} from "@testing-library/react";
 import Home from "@/app/page";
 import {renderWithProviders} from "../../../test/utils";

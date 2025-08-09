@@ -1,4 +1,6 @@
 "use client";
+
+import React from "react";
 import { useGetPostsQuery, useGetUsersQuery } from "@/store/services/forumApi";
 import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "@/store/store";
