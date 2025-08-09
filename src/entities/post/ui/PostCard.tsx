@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from "@/store/store";
 import { toggleDislike, toggleFavorite, toggleLike } from "@/store/slices/uiSlice";
 import type { Post } from "@/store/services/forumApi";
 
-export function PostCard({ post }: { post: Post }) {
+export default function PostCard({ post }: { post: Post }) {
     const dispatch = useAppDispatch();
     const reaction = useAppSelector((s) => s.ui.reactions[post.id] ?? 0);
     const isFav = useAppSelector((s) => s.ui.favorites.includes(post.id));

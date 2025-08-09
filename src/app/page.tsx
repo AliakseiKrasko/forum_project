@@ -1,38 +1,5 @@
-"use client";
 import React from "react";
-import { useGetPostsQuery, useGetUsersQuery } from "@/store/services/forumApi";
-import { useAppDispatch, useAppSelector } from "@/store/store";
-import { setFilterUser } from "@/store/slices/uiSlice";
-import { PostCard } from "@/entities/post/ui/PostCard";
+import {HomePage} from "@/app/pages/home";
 
-export default function Home() {
-    const dispatch = useAppDispatch();
-    const filter = useAppSelector((s) => s.ui.filterUserId);
-    const { data: users } = useGetUsersQuery();
-    const { data: posts } = useGetPostsQuery(filter);
 
-    return (
-        <main className="container mx-auto p-6 space-y-6">
-            <div className="flex gap-4 items-center">
-                <select
-                    className="border rounded p-2"
-                    value={filter ?? ""}
-                    onChange={(e) => dispatch(setFilterUser(e.target.value ? Number(e.target.value) : undefined))}
-                >
-                    <option value="">All users</option>
-                    {users?.map((u) => (
-                        <option key={u.id} value={u.id}>
-                            {u.name}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {posts?.map((p) => (
-                    <PostCard key={p.id} post={p} />
-                ))}
-            </ul>
-        </main>
-    );
-}
+export default function Page() { return <HomePage />; }
