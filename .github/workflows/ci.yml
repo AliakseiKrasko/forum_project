@@ -1,20 +1,52 @@
 name: CI
 on: [push, pull_request]
+
 jobs:
   ci:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      # 1) Node
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-      - uses: pnpm/action-setup@v2
+
+      # 2) Устанавливаем pnpm через Corepack
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Use pnpm@9
+        run: corepack prepare pnpm@9 --activate
+
+      # 3) Кэшируем pnpm store (вместо cache: pnpm в setup-node)
+      - name: Get pnpm store path
+        id: pnpm-store
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v4
         with:
-          version: latest
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
-      - run: pnpm run lint || true
-      - run: pnpm test -- --run
-      - run: pnpm dlx playwright install --with-deps
-      - run: pnpm run e2e
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # 4) Установка и проверки
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Lint (non-blocking)
+        run: pnpm run lint || true
+
+      - name: Unit tests
+        run: pnpm test -- --run
+
+      - name: Install Playwright browsers
+        run: pnpm dlx playwright install --with-deps
+
+      - name: E2E tests
+        run: pnpm run e2e
