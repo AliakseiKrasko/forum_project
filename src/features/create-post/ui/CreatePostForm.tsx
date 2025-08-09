@@ -33,22 +33,24 @@ export default function CreatePostDialog() {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 border rounded p-4">
-            <h2 className="font-semibold">Create a post</h2>
-            <div className="flex gap-2">
-                <input {...register("title")} placeholder="Title" className="border rounded p-2 flex-1" />
-            </div>
-            {errors.title && <p className="text-red-500 text-sm">{errors.title.message}</p>}
+        <form onSubmit={handleSubmit(onSubmit)} className="rounded-2xl border bg-white/80 p-4 shadow-sm dark:bg-neutral-900">
+            <h2 className="mb-3 text-base font-semibold">Create a post</h2>
 
-            <textarea {...register("body")} placeholder="Post text" className="border rounded p-2 w-full h-28" />
-            {errors.body && <p className="text-red-500 text-sm">{errors.body.message}</p>}
+            <label className="block text-sm text-neutral-600 dark:text-neutral-300">Title</label>
+            <input {...register("title")} placeholder="Post title"
+                   className="mt-1 w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500" />
 
-            {/* скрытое/readonly поле userId — можно сделать select пользователя */}
-            <input type="hidden" {...register("userId", { valueAsNumber: true })} />
+            {errors.title && <p className="mt-1 text-sm text-red-500">{errors.title.message}</p>}
 
-            <div className="flex gap-2">
-                <button type="submit" className="border rounded px-3 py-2" disabled={isLoading}>
-                    {isLoading ? "We create…" : "Create"}
+            <label className="mt-3 block text-sm text-neutral-600 dark:text-neutral-300">Post text</label>
+            <textarea {...register("body")} placeholder="Write something…"
+                      className="mt-1 h-28 w-full resize-y rounded-lg border px-3 py-2 outline-none focus:border-blue-500" />
+            {errors.body && <p className="mt-1 text-sm text-red-500">{errors.body.message}</p>}
+
+            <div className="mt-3 flex justify-end">
+                <button type="submit" disabled={isLoading}
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:opacity-60">
+                    {isLoading ? "Creating…" : "Create"}
                 </button>
             </div>
         </form>
