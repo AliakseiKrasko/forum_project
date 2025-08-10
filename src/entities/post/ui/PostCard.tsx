@@ -1,17 +1,24 @@
 "use client";
 import React from "react";
 import Link from "next/link";
+import { formatDistanceToNow } from "date-fns";
 import { useAppDispatch, useAppSelector } from "@/store/store";
-import { toggleDislike, toggleFavorite, toggleLike, removeCreatedPost } from "@/store/slices/uiSlice";
+import {
+    toggleDislike,
+    toggleFavorite,
+    toggleLike,
+    removeCreatedPost,
+} from "@/store/slices/uiSlice";
 import {
     forumApi,
     useDeletePostMutation,
     useGetUsersQuery,
     useUpdatePostMutation,
+    useGetCommentsQuery,           // 👈 для счётчика комментов
     type User,
     type Post,
 } from "@/store/services/forumApi";
-import {EditPostDialog} from "@/features/edit-post";
+import { EditPostDialog } from "@/features/edit-post";
 
 // генерим url аватарки (детерминированный по email/ID)
 function avatarUrl(user?: User, fallbackSeed?: number) {
@@ -27,6 +34,13 @@ export default function PostCard({ post }: { post: Post }) {
     const reaction = useAppSelector((s) => s.ui.reactions[post.id] ?? 0);
     const isFav = useAppSelector((s) => s.ui.favorites.includes(post.id));
     const isLocal = useAppSelector((s) => s.ui.createdPosts.some((p) => p.id === post.id));
+    const localComments = useAppSelector((s) => s.ui.createdComments[post.id]?.length ?? 0);
+
+    // ⚠️ это простой вариант: один запрос на карточку.
+    // если постов много — позже оптимизируем бэком/агрегацией.
+    const { data: apiComments } = useGetCommentsQuery(post.id);
+    const commentsCount = (apiComments?.length ?? 0) + localComments;
+
     const [deletePost, { isLoading: removing }] = useDeletePostMutation();
     const [updatePost, { isLoading: saving }] = useUpdatePostMutation();
 
@@ -36,20 +50,12 @@ export default function PostCard({ post }: { post: Post }) {
 
     const liked = reaction === 1;
     const disliked = reaction === -1;
+    const likeCount = (post.likes ?? 0) + (liked ? 1 : 0);
+
+    const createdAt = post.createdAt ? new Date(post.createdAt) : undefined;
+    const timeAgo = createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : "just now";
+
     const prefetch = () => dispatch(forumApi.util.prefetch("getPost", post.id, { force: false }));
-
-    // ======== Edit modal state ========
-    const [editing, setEditing] = React.useState(false);
-    const [title, setTitle] = React.useState(post.title);
-    const [body, setBody] = React.useState(post.body);
-
-    React.useEffect(() => {
-        if (editing) {
-            // синхронизируем поля, если карточку открыли позже
-            setTitle(post.title);
-            setBody(post.body);
-        }
-    }, [editing, post.title, post.body]);
 
     const handleDelete = async () => {
         if (isLocal) {
@@ -75,16 +81,6 @@ export default function PostCard({ post }: { post: Post }) {
         } catch {}
     };
 
-    const handleEditSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            await updatePost({ id: post.id, title: title.trim(), body: body.trim() }).unwrap();
-            setEditing(false);
-        } catch {
-            // можно показать тост
-        }
-    };
-
     return (
         <li className="group h-full overflow-hidden rounded-2xl border bg-white/80 shadow-sm transition hover:shadow-lg dark:bg-neutral-900">
             <div className="grid h-full grid-cols-[1fr,128px] gap-4 p-4">
@@ -102,7 +98,8 @@ export default function PostCard({ post }: { post: Post }) {
                             <div className="font-medium text-neutral-800 dark:text-neutral-200">
                                 {user?.name ?? `User ${post.userId}`}
                             </div>
-                            <div className="text-xs">~ just now · {isLocal ? "local" : "api"}</div>
+                            {/* 👇 время и источник */}
+                            <div className="text-xs">~ {timeAgo} · {isLocal ? "local" : "api"}</div>
                         </div>
                     </div>
 
@@ -123,6 +120,7 @@ export default function PostCard({ post }: { post: Post }) {
 
                     {/* actions — прижаты вниз за счёт mt-auto */}
                     <div className="mt-auto flex items-center gap-2 pt-4">
+                        {/* 👍 Like */}
                         <button
                             className={`rounded-full border px-3 py-1 text-sm ${
                                 liked
@@ -131,10 +129,13 @@ export default function PostCard({ post }: { post: Post }) {
                             }`}
                             onClick={() => dispatch(toggleLike(post.id))}
                             aria-pressed={liked}
+                            aria-label="Like"
                             title="Like"
                         >
-                            👍
+                            👍 {likeCount}
                         </button>
+
+                        {/* 👎 Dislike */}
                         <button
                             className={`rounded-full border px-3 py-1 text-sm ${
                                 disliked
@@ -143,10 +144,13 @@ export default function PostCard({ post }: { post: Post }) {
                             }`}
                             onClick={() => dispatch(toggleDislike(post.id))}
                             aria-pressed={disliked}
+                            aria-label="Dislike"
                             title="Dislike"
                         >
                             👎
                         </button>
+
+                        {/* ⭐ Fav */}
                         <button
                             className={`ml-1 rounded-full border px-3 py-1 text-sm ${
                                 isFav
@@ -154,16 +158,26 @@ export default function PostCard({ post }: { post: Post }) {
                                     : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
                             }`}
                             onClick={() => dispatch(toggleFavorite(post.id))}
+                            aria-pressed={isFav}
+                            aria-label="Favorite"
                             title="Favorite"
                         >
                             ⭐ {isFav ? "In fav" : "Add"}
                         </button>
 
+                        {/* 💬 Comments count */}
+                        <span
+                            className="ml-1 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm"
+                            aria-label="Comments count"
+                            title="Comments"
+                        >
+              💬 {commentsCount}
+            </span>
+
                         <div className="ml-auto flex items-center gap-2">
                             <Link href={`/posts/${post.id}`} className="text-sm text-blue-600 hover:underline">
                                 Open
                             </Link>
-                            {/* Edit теперь настоящая кнопка, открывает модалку */}
                             <EditPostDialog post={post} />
                             <button
                                 onClick={handleDelete}
@@ -182,6 +196,7 @@ export default function PostCard({ post }: { post: Post }) {
                         src={preview(post.id)}
                         alt=""
                         className="size-full object-cover transition group-hover:scale-105"
+                        loading="lazy"
                     />
                 </div>
             </div>

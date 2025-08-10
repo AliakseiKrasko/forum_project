@@ -20,7 +20,8 @@ export interface Post {
     title: string;
     body: string;
     likes?: number;
-    priority?: number; // ✅ добавили для админки
+    priority?: number;
+    createdAt?: string;
 }
 
 export interface Comment {
@@ -143,7 +144,11 @@ export const forumApi = createApi({
         }),
 
         createPost: build.mutation<Post, Pick<Post, "title" | "body" | "userId">>({
-            query: (body) => ({ url: "/posts", method: "POST", body }),
+            query: (body) => ({
+                url: "/posts",
+                method: "POST",
+                body: { ...body, createdAt: new Date().toISOString() },
+            }),
             async onQueryStarted(newPost, { dispatch, queryFulfilled }) {
                 const tempId = -Date.now();
 
