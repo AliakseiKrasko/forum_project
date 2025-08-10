@@ -2,34 +2,101 @@
 import React from "react";
 import { useAppSelector } from "@/store/store";
 import { useGetPostsQuery } from "@/store/services/forumApi";
-import { PostCard } from "@/entities/post";
+
+
+import FiltersBar from "@/features/posts/FiltersBar";
+import { useDebounce } from "@/shared/lib/useDebounce";
+import SkeletonPostList from "@/widgets/posts/SkeletonPostList";
+import EmptyState from "@/shared/ui/EmptyState";
+import ErrorState from "@/shared/ui/ErrorState";
+import {PostCard} from "@/entities/post";
 
 export default function PostList() {
     const filter = useAppSelector((s) => s.ui.filterUserId);
     const localCreated = useAppSelector((s) => s.ui.createdPosts ?? []);
-    const { data, isLoading } = useGetPostsQuery(filter);
+    const { data, isLoading, isError, isFetching, refetch } = useGetPostsQuery(filter);
 
-    const serverPosts = data ?? [];
-    const localFiltered = filter ? localCreated.filter(p => p.userId === filter) : localCreated;
-    const merged = [...localFiltered, ...serverPosts.filter(p => !localFiltered.some(lp => lp.id === p.id))];
+    // поиск
+    const [query, setQuery] = React.useState("");
+    const debounced = useDebounce(query, 300);
+    const q = debounced.trim().toLowerCase();
 
+    // merge локальных и серверных без дублей + сортировка по времени/id
+    const merged = React.useMemo(() => {
+        const serverPosts = data ?? [];
+        const localFiltered = filter ? localCreated.filter((p) => p.userId === filter) : localCreated;
+        const localIds = new Set(localFiltered.map((p) => p.id));
+        const arr = [...localFiltered, ...serverPosts.filter((p) => !localIds.has(p.id))];
+
+        arr.sort((a, b) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return tb - ta || b.id - a.id;
+        });
+        return arr;
+    }, [data, localCreated, filter]);
+
+    // фильтрация по поиску (title/body)
+    const visible = React.useMemo(() => {
+        if (!q) return merged;
+        return merged.filter(
+            (p) =>
+                p.title.toLowerCase().includes(q) ||
+                p.body.toLowerCase().includes(q)
+        );
+    }, [merged, q]);
+
+    // sticky-панель
+    const toolbar = <FiltersBar query={query} onQueryChange={setQuery} />;
+
+    // состояния
     if (isLoading && merged.length === 0) {
         return (
-            <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({length: 6}).map((_,i)=>(
-                    <li key={i} className="animate-pulse rounded-2xl border bg-white/60 p-4 dark:bg-neutral-900">
-                        <div className="mb-3 h-4 w-2/3 rounded bg-neutral-200 dark:bg-neutral-700" />
-                        <div className="mb-2 h-4 w-full rounded bg-neutral-200 dark:bg-neutral-700" />
-                        <div className="h-4 w-5/6 rounded bg-neutral-200 dark:bg-neutral-700" />
-                    </li>
-                ))}
-            </ul>
+            <>
+                {toolbar}
+                <SkeletonPostList count={6} />
+            </>
+        );
+    }
+    if (isError && merged.length === 0) {
+        return (
+            <>
+                {toolbar}
+                <ErrorState onRetry={refetch} />
+            </>
+        );
+    }
+    if (visible.length === 0) {
+        const isFiltered = typeof filter === "number" || q.length > 0;
+        return (
+            <>
+                {toolbar}
+                <EmptyState
+                    title={isFiltered ? "Nothing found" : "No posts yet"}
+                    message={
+                        isFiltered
+                            ? "Try another user or change your search query."
+                            : "Create the first post to get started."
+                    }
+                />
+            </>
         );
     }
 
+    // список (адаптив: 1 кол. на мобиле, 2 на sm, 3 на lg)
     return (
-        <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {merged.map((p) => <PostCard key={p.id} post={p} />)}
-        </ul>
+        <>
+            {toolbar}
+            {isFetching && (
+                <div className="mb-2 text-sm text-neutral-500" aria-live="polite">
+                    Updating…
+                </div>
+            )}
+            <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {visible.map((p) => (
+                    <PostCard key={p.id} post={p} />
+                ))}
+            </ul>
+        </>
     );
 }

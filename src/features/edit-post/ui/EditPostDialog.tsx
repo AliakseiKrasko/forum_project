@@ -43,7 +43,7 @@ export default function EditPostDialog({ post }: { post: Post }) {
 
     return (
         <>
-            <button className="rounded border px-2 py-1 cursor-pointer" onClick={() => { reset({ title: post.title, body: post.body }); setOpen(true); }}>
+            <button className="h-8 rounded-md border px-3 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-60" onClick={() => { reset({ title: post.title, body: post.body }); setOpen(true); }}>
                 Edit
             </button>
 

@@ -2,6 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import { shallowEqual } from "react-redux";
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import {
     toggleDislike,
@@ -14,13 +15,16 @@ import {
     useDeletePostMutation,
     useGetUsersQuery,
     useUpdatePostMutation,
-    useGetCommentsQuery,           // 👈 для счётчика комментов
+    useGetCommentsQuery,
     type User,
     type Post,
 } from "@/store/services/forumApi";
 import { EditPostDialog } from "@/features/edit-post";
+import PostActions from "@/entities/post/ui/PostActions";
+import {makeSelectPostUi} from "@/entities/post/model/selectors";
+// import { makeSelectPostUi } from "@/entities/post/selectors";
 
-// генерим url аватарки (детерминированный по email/ID)
+// helpers
 function avatarUrl(user?: User, fallbackSeed?: number) {
     const seed = user?.email ?? `user-${user?.id ?? fallbackSeed ?? 0}`;
     return `https://i.pravatar.cc/64?u=${encodeURIComponent(seed)}`;
@@ -29,20 +33,24 @@ function preview(id: number) {
     return `https://picsum.photos/seed/${id}/320/200`;
 }
 
-export default function PostCard({ post }: { post: Post }) {
-    const dispatch = useAppDispatch();
-    const reaction = useAppSelector((s) => s.ui.reactions[post.id] ?? 0);
-    const isFav = useAppSelector((s) => s.ui.favorites.includes(post.id));
-    const isLocal = useAppSelector((s) => s.ui.createdPosts.some((p) => p.id === post.id));
-    const localComments = useAppSelector((s) => s.ui.createdComments[post.id]?.length ?? 0);
+type Props = { post: Post };
 
-    // ⚠️ это простой вариант: один запрос на карточку.
-    // если постов много — позже оптимизируем бэком/агрегацией.
+function PostCard({ post }: Props) {
+    const dispatch = useAppDispatch();
+
+    // ✅ мемо-селектор только для нужных полей карточки
+    const selectPostUi = React.useMemo(makeSelectPostUi, []);
+    const { reaction, isFav, isLocal, localComments } = useAppSelector(
+        (s) => selectPostUi(s, post.id),
+        shallowEqual
+    );
+
+    // 💬 счётчик комментариев (API + локальные)
     const { data: apiComments } = useGetCommentsQuery(post.id);
     const commentsCount = (apiComments?.length ?? 0) + localComments;
 
     const [deletePost, { isLoading: removing }] = useDeletePostMutation();
-    const [updatePost, { isLoading: saving }] = useUpdatePostMutation();
+    const [updatePost] = useUpdatePostMutation(); // оставил, если правишь в модалке
 
     // автор поста
     const { data: users } = useGetUsersQuery();
@@ -55,10 +63,17 @@ export default function PostCard({ post }: { post: Post }) {
     const createdAt = post.createdAt ? new Date(post.createdAt) : undefined;
     const timeAgo = createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : "just now";
 
-    const prefetch = () => dispatch(forumApi.util.prefetch("getPost", post.id, { force: false }));
+    // ✅ prefetch через хуки RTK Query (и пост, и комменты)
+    const prefetchPost = forumApi.usePrefetch("getPost");
+    const prefetchComments = forumApi.usePrefetch("getComments");
+    const prefetch = React.useCallback(() => {
+        prefetchPost(post.id);
+        prefetchComments(post.id);
+    }, [prefetchPost, prefetchComments, post.id]);
 
     const handleDelete = async () => {
         if (isLocal) {
+            // локальный — просто вычищаем
             dispatch(removeCreatedPost(post.id));
             dispatch(
                 forumApi.util.updateQueryData("getPosts", undefined, (d) => {
@@ -78,7 +93,9 @@ export default function PostCard({ post }: { post: Post }) {
         }
         try {
             await deletePost(post.id).unwrap();
-        } catch {}
+        } catch {
+            /* ignore */
+        }
     };
 
     return (
@@ -93,18 +110,19 @@ export default function PostCard({ post }: { post: Post }) {
                             alt={user?.name ?? `User ${post.userId}`}
                             className="size-8 rounded-full object-cover"
                             loading="lazy"
+                            decoding="async"
                         />
                         <div className="truncate">
                             <div className="font-medium text-neutral-800 dark:text-neutral-200">
                                 {user?.name ?? `User ${post.userId}`}
                             </div>
-                            {/* 👇 время и источник */}
                             <div className="text-xs">~ {timeAgo} · {isLocal ? "local" : "api"}</div>
                         </div>
                     </div>
 
                     {/* title */}
                     <Link
+                        data-testid="post-title-link"
                         href={`/posts/${post.id}`}
                         onMouseEnter={prefetch}
                         onFocus={prefetch}
@@ -118,76 +136,22 @@ export default function PostCard({ post }: { post: Post }) {
                         {post.body}
                     </p>
 
-                    {/* actions — прижаты вниз за счёт mt-auto */}
-                    <div className="mt-auto flex items-center gap-2 pt-4">
-                        {/* 👍 Like */}
-                        <button
-                            className={`rounded-full border px-3 py-1 text-sm ${
-                                liked
-                                    ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30"
-                                    : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
-                            }`}
-                            onClick={() => dispatch(toggleLike(post.id))}
-                            aria-pressed={liked}
-                            aria-label="Like"
-                            title="Like"
-                        >
-                            👍 {likeCount}
-                        </button>
-
-                        {/* 👎 Dislike */}
-                        <button
-                            className={`rounded-full border px-3 py-1 text-sm ${
-                                disliked
-                                    ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-900/30"
-                                    : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
-                            }`}
-                            onClick={() => dispatch(toggleDislike(post.id))}
-                            aria-pressed={disliked}
-                            aria-label="Dislike"
-                            title="Dislike"
-                        >
-                            👎
-                        </button>
-
-                        {/* ⭐ Fav */}
-                        <button
-                            className={`ml-1 rounded-full border px-3 py-1 text-sm ${
-                                isFav
-                                    ? "border-yellow-500 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30"
-                                    : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
-                            }`}
-                            onClick={() => dispatch(toggleFavorite(post.id))}
-                            aria-pressed={isFav}
-                            aria-label="Favorite"
-                            title="Favorite"
-                        >
-                            ⭐ {isFav ? "In fav" : "Add"}
-                        </button>
-
-                        {/* 💬 Comments count */}
-                        <span
-                            className="ml-1 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm"
-                            aria-label="Comments count"
-                            title="Comments"
-                        >
-              💬 {commentsCount}
-            </span>
-
-                        <div className="ml-auto flex items-center gap-2">
-                            <Link href={`/posts/${post.id}`} className="text-sm text-blue-600 hover:underline">
-                                Open
-                            </Link>
-                            <EditPostDialog post={post} />
-                            <button
-                                onClick={handleDelete}
-                                disabled={removing}
-                                className="rounded border px-2 py-1 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-60"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
+                    {/* actions */}
+                    <PostActions
+                        liked={liked}
+                        disliked={disliked}
+                        fav={isFav}
+                        likeCount={likeCount}
+                        commentsCount={commentsCount}
+                        onLike={() => dispatch(toggleLike(post.id))}
+                        onDislike={() => dispatch(toggleDislike(post.id))}
+                        onFav={() => dispatch(toggleFavorite(post.id))}
+                        openHref={`/posts/${post.id}`}
+                        onOpenPrefetch={prefetch}
+                        editButton={<EditPostDialog post={post} />}
+                        onDelete={handleDelete}
+                        deleting={removing}
+                    />
                 </div>
 
                 {/* правая колонка — превью */}
@@ -197,9 +161,13 @@ export default function PostCard({ post }: { post: Post }) {
                         alt=""
                         className="size-full object-cover transition group-hover:scale-105"
                         loading="lazy"
+                        decoding="async"
                     />
                 </div>
             </div>
         </li>
     );
 }
+
+// ✅ мемо: карточка не будет перерисовываться без изменения своих пропов/селектов
+export default React.memo(PostCard);
