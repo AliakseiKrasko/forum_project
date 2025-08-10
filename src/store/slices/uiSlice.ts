@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import {Address, Company, Post, User} from "@/store/services/forumApi";
+import {Address, Company, Post, User, Comment} from "@/store/services/forumApi";
+
 
 interface UiState {
     favorites: number[];
@@ -9,7 +10,7 @@ interface UiState {
     createdPosts: Post[];
     profile: (User & { avatarUrl?: string }) | null;
     auth: { loggedIn: boolean; userId: number | null };
-
+    createdComments: Record<number, Comment[]>;
 }
 
 export type ProfilePatch =
@@ -26,6 +27,7 @@ const initialState: UiState = {
     createdPosts: [],
     profile: null,
     auth: { loggedIn: false, userId: null },
+    createdComments: {},
 };
 
 
@@ -101,11 +103,35 @@ const uiSlice = createSlice({
             state.auth = { loggedIn: false, userId: null };
             state.profile = null;
         },
+        addCreatedComment(state, action: PayloadAction<{ postId: number; comment: Comment }>) {
+            const { postId, comment } = action.payload;
+            if (!state.createdComments[postId]) state.createdComments[postId] = [];
+            // не дублируем по id
+            if (!state.createdComments[postId].some(c => c.id === comment.id)) {
+                state.createdComments[postId].unshift(comment);
+            }
+        },
+        updateCreatedCommentId(
+            state,
+            action: PayloadAction<{ postId: number; tempId: number; newId: number }>
+        ) {
+            const { postId, tempId, newId } = action.payload;
+            const arr = state.createdComments[postId];
+            if (!arr) return;
+            const i = arr.findIndex(c => c.id === tempId);
+            if (i >= 0) arr[i].id = newId;
+        },
+        clearCreatedCommentsForPost(state, action: PayloadAction<number>) {
+            delete state.createdComments[action.payload];
+        },
     }
 });
 
 export const { toggleDark, setFilterUser, toggleFavorite, toggleLike,
     toggleDislike, addCreatedPost, updateCreatedPostId, removeCreatedPost,
-    editCreatedPost, setProfile, patchProfile, setAuth, logout } = uiSlice.actions;
+    editCreatedPost, setProfile, patchProfile, setAuth, logout, addCreatedComment,
+    updateCreatedCommentId,
+    clearCreatedCommentsForPost, } = uiSlice.actions;
 export default uiSlice.reducer;
 export type { UiState };
+export const initialUiState = initialState;

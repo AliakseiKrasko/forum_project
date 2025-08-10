@@ -30,6 +30,13 @@ export interface Comment {
     body: string;
 }
 
+export interface NewCommentInput {
+    postId: number;
+    name: string;
+    email: string;
+    body: string;
+}
+
 /** Глубокий partial для PATCH/PUT пользователя */
 export type UserPatch =
     { id: number } &
@@ -253,12 +260,38 @@ export const forumApi = createApi({
                 }
             },
         }),
+        createComment: build.mutation<Comment, NewCommentInput>({
+            query: (body) => ({ url: "/comments", method: "POST", body }),
+            async onQueryStarted(newComment, { dispatch, queryFulfilled }) {
+                // временный id
+                const tempId = -Date.now();
 
+                // оптимистично кладём в кеш getComments(postId)
+                const patch = dispatch(
+                    forumApi.util.updateQueryData("getComments", newComment.postId, (draft) => {
+                        draft.unshift({ id: tempId, ...newComment });
+                    })
+                );
+                try {
+                    const { data } = await queryFulfilled;
+                    // заменим временный id на реальный
+                    dispatch(
+                        forumApi.util.updateQueryData("getComments", newComment.postId, (draft) => {
+                            const i = draft.findIndex((c) => c.id === tempId);
+                            if (i >= 0) draft[i].id = data.id;
+                        })
+                    );
+                } catch {
+                    patch.undo();
+                }
+            },
+        }),
         /* ---------- Comments ---------- */
         getComments: build.query<Comment[], number>({
             query: (postId) => `/comments?postId=${postId}`,
             providesTags: (r, e, id) => [{ type: "Comments", id }],
         }),
+
     }),
 });
 
@@ -277,4 +310,5 @@ export const {
     useUpdatePostMutation,
     // comments
     useGetCommentsQuery,
+    useCreateCommentMutation,
 } = forumApi;

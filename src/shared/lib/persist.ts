@@ -1,19 +1,26 @@
-import type { UiState } from "@/store/slices/uiSlice";
+import { initialUiState, type UiState } from "@/store/slices/uiSlice";
 
 export const PERSIST_KEY = "forum_ui";
 const VERSION = 1;
 
 type Persisted<T> = { __v: number; data: T };
 
+// type guard для формата { __v, data }
+function isPersisted<T>(v: unknown): v is Persisted<T> {
+    return typeof (v as { __v?: unknown })?.__v === "number";
+}
+
+/** Подмешиваем недостающие поля к сохранённому стейту */
 export function ensureUiDefaults(ui?: Partial<UiState>): UiState {
     return {
-        favorites: ui?.favorites ?? [],
-        reactions: ui?.reactions ?? {},
-        dark: ui?.dark ?? false,
-        filterUserId: ui?.filterUserId,
-        createdPosts: ui?.createdPosts ?? [],
-        profile: ui?.profile ?? null,
-        auth: ui?.auth ?? { loggedIn: false, userId: null },
+        favorites: ui?.favorites ?? initialUiState.favorites,
+        reactions: ui?.reactions ?? initialUiState.reactions,
+        dark: ui?.dark ?? initialUiState.dark,
+        filterUserId: ui?.filterUserId ?? initialUiState.filterUserId,
+        createdPosts: ui?.createdPosts ?? initialUiState.createdPosts,
+        profile: ui?.profile ?? initialUiState.profile,
+        auth: ui?.auth ?? initialUiState.auth,
+        createdComments: ui?.createdComments ?? initialUiState.createdComments, // ✅ было 'loaded' — исправлено
     };
 }
 
@@ -22,12 +29,20 @@ export function loadUiState(): UiState | undefined {
     try {
         const raw = localStorage.getItem(PERSIST_KEY);
         if (!raw) return undefined;
-        const parsed = JSON.parse(raw) as Persisted<Partial<UiState>> | Partial<UiState>;
-        if ((parsed as Persisted<Partial<UiState>>).__v != null) {
-            const { data } = parsed as Persisted<Partial<UiState>>;
-            return ensureUiDefaults(data);
+
+        const parsed: unknown = JSON.parse(raw);
+
+        // новый формат — { __v, data }
+        if (isPersisted<Partial<UiState>>(parsed)) {
+            return ensureUiDefaults(parsed.data);
         }
-        return ensureUiDefaults(parsed as Partial<UiState>);
+
+        // старый формат — просто объект ui
+        if (typeof parsed === "object" && parsed !== null) {
+            return ensureUiDefaults(parsed as Partial<UiState>);
+        }
+
+        return undefined;
     } catch {
         return undefined;
     }
@@ -38,13 +53,13 @@ export function saveUiState(state: UiState) {
     try {
         const payload: Persisted<UiState> = { __v: VERSION, data: state };
         localStorage.setItem(PERSIST_KEY, JSON.stringify(payload));
-    } catch {}
+    } catch {
+        // игнорируем квоту/приватный режим и т.п.
+    }
 }
 
-export function throttle<T extends (...args: unknown[]) => void>(
-    fn: T,
-    ms: number
-) {
+/** Простой throttle, чтобы не писать в storage слишком часто */
+export function throttle<T extends (...args: unknown[]) => void>(fn: T, ms: number) {
     let last = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
