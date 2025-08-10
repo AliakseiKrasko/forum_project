@@ -20,6 +20,7 @@ export interface Post {
     title: string;
     body: string;
     likes?: number;
+    priority?: number; // ✅ добавили для админки
 }
 
 export interface Comment {
@@ -260,6 +261,58 @@ export const forumApi = createApi({
                 }
             },
         }),
+
+        // ✅ Установка приоритета поста (для админки)
+        setPostPriority: build.mutation<Post, { id: number; priority: number }>({
+            query: ({ id, priority }) => ({
+                url: `/posts/${id}`,
+                method: "PATCH",
+                body: { priority },
+            }),
+            async onQueryStarted({ id, priority }, { dispatch, queryFulfilled, getState }) {
+                const undoDetail = dispatch(
+                    forumApi.util.updateQueryData("getPost", id, (draft) => {
+                        draft.priority = priority;
+                    })
+                );
+                const undoAll = dispatch(
+                    forumApi.util.updateQueryData("getPosts", undefined, (draft) => {
+                        const i = draft.findIndex((p) => p.id === id);
+                        if (i >= 0) draft[i].priority = priority;
+                    })
+                );
+
+                type QueryMeta = { endpointName?: string; originalArgs?: unknown };
+                type RTKQueryState = { forumApi?: { queries?: Record<string, QueryMeta> } };
+                const cached = (getState() as RTKQueryState).forumApi?.queries ?? {};
+                const userIds = Object.values(cached).flatMap((q) =>
+                    q?.endpointName === "getPosts" && typeof q.originalArgs === "number" ? [q.originalArgs as number] : []
+                );
+                const undoUsers = userIds.map((uid) =>
+                    dispatch(
+                        forumApi.util.updateQueryData("getPosts", uid, (draft) => {
+                            const i = draft.findIndex((p) => p.id === id);
+                            if (i >= 0) draft[i].priority = priority;
+                        })
+                    )
+                );
+
+                try {
+                    await queryFulfilled;
+                } catch {
+                    undoDetail.undo();
+                    undoAll.undo();
+                    undoUsers.forEach((p) => p.undo());
+                }
+            },
+        }),
+
+        /* ---------- Comments ---------- */
+        getComments: build.query<Comment[], number>({
+            query: (postId) => `/comments?postId=${postId}`,
+            providesTags: (r, e, id) => [{ type: "Comments", id }],
+        }),
+
         createComment: build.mutation<Comment, NewCommentInput>({
             query: (body) => ({ url: "/comments", method: "POST", body }),
             async onQueryStarted(newComment, { dispatch, queryFulfilled }) {
@@ -286,12 +339,6 @@ export const forumApi = createApi({
                 }
             },
         }),
-        /* ---------- Comments ---------- */
-        getComments: build.query<Comment[], number>({
-            query: (postId) => `/comments?postId=${postId}`,
-            providesTags: (r, e, id) => [{ type: "Comments", id }],
-        }),
-
     }),
 });
 
@@ -308,6 +355,7 @@ export const {
     useCreatePostMutation,
     useDeletePostMutation,
     useUpdatePostMutation,
+    useSetPostPriorityMutation, // ✅ экспорт
     // comments
     useGetCommentsQuery,
     useCreateCommentMutation,

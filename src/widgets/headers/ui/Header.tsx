@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/features/theme/ui/ThemeToggle";
 import AvatarMenu from "@/features/auth/ui/AvatarMenu";
+import AdminSwitch from "@/features/auth/ui/AdminSwitch";
 
 function Tab({ href, children }: { href: string; children: React.ReactNode }) {
     const pathname = usePathname();
@@ -33,6 +34,7 @@ export default function Header() {
                 <div className="ml-auto flex items-center gap-2">
                     <ThemeToggle />
                     <AvatarMenu />
+                    <AdminSwitch />
                 </div>
             </nav>
         </header>
