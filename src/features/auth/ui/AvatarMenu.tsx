@@ -52,21 +52,21 @@ export default function AvatarMenu() {
     }
 
     return (
-        <div className="relative">
+        <div className="relative ">
             <button
                 ref={btnRef}
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-full border px-2 py-1 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                className="flex items-center gap-2 border rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
             >
                 <img
                     src={avatarSrc}
                     alt="avatar"
                     className="size-8 rounded-full object-cover"
                 />
-                <span className="hidden text-sm sm:inline">{name}</span>
+                <span className="hidden text-sm sm:inline">Guest</span>
             </button>
 
             {open && (

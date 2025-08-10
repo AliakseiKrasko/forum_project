@@ -29,7 +29,8 @@ export default React.memo(function PostActions({
                                                    editButton, onDelete, deleting,
                                                }: Props) {
     return (
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+        <div className="mt-auto flex items-center gap-2 pt-4 flex-nowrap">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
             <Action label="Like" ariaPressed={liked} active={liked} onClick={onLike} className="like-btn">
                 👍 <span className="ml-1 tabular-nums">{likeCount}</span>
             </Action>
@@ -59,6 +60,7 @@ export default React.memo(function PostActions({
             >
                 💬 <span className="tabular-nums">{commentsCount}</span>
             </Link>
+            </div>
 
             <div className="ml-auto flex items-center gap-2">
                 {editButton}

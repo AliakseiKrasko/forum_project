@@ -48,7 +48,7 @@ export default function FiltersBar({ query, onQueryChange }: Props) {
 
                 {/* поиск */}
                 <input
-                    className="h-10 flex-1 rounded-lg border px-3 text-sm outline-none focus:border-blue-500"
+                    className="h-10 w-full sm:flex-1 sm:min-w-0 rounded-lg border px-3 text-sm outline-none focus:border-blue-500"
                     placeholder="Search in title or body…"
                     value={query}
                     onChange={(e) => onQueryChange(e.target.value)}
